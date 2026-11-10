@@ -104,6 +104,10 @@ curl http://localhost:8080/api/bookings/{id}
 
 ## Observability
 
+![Grafana dashboard — TransitFlow: SAGA & Payments](docs/dashboard.svg)
+
+> *Illustrative preview of the Grafana dashboard that `docker compose up` provisions automatically. Panels and PromQL queries match the live dashboard; replace with a real screenshot once the stack is running.*
+
 `docker compose up --build` now also brings up a **Prometheus + Grafana** stack alongside the services. Each service already exposes Micrometer metrics at `/actuator/prometheus`; Prometheus scrapes all five every 5s and Grafana visualizes them.
 
 | Tool | URL | Notes |

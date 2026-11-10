@@ -1,0 +1,46 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: booking-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5434/bookings}
+    username: ${SPRING_DATASOURCE_USERNAME:transitflow}
+    password: ${SPRING_DATASOURCE_PASSWORD:transitflow}
+  jpa:
+    hibernate:
+      ddl-auto: update
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: booking-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.transitflow.booking.messaging.PaymentResultEvent
+        spring.json.trusted.packages: "com.transitflow.*"
+    producer:
+      # The outbox relay publishes pre-serialized JSON, so we send raw strings.
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+transitflow:
+  trip-service-url: ${TRANSITFLOW_TRIP_SERVICE_URL:http://localhost:8081}
+  outbox:
+    poll-interval-ms: 2000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-}]"

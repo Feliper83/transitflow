@@ -2,10 +2,14 @@ package com.transitflow.booking.service;
 
 import com.transitflow.booking.domain.Booking;
 import com.transitflow.booking.domain.BookingRepository;
+import com.transitflow.booking.domain.BookingStatus;
 import com.transitflow.booking.messaging.BookingEvent;
 import com.transitflow.booking.messaging.ProcessPaymentCommand;
+import com.transitflow.booking.metrics.BookingMetrics;
 import com.transitflow.booking.outbox.OutboxWriter;
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -27,10 +31,16 @@ public class BookingStore {
 
     private final BookingRepository bookings;
     private final OutboxWriter outbox;
+    private final BookingMetrics metrics;
 
-    public BookingStore(BookingRepository bookings, OutboxWriter outbox) {
+    public BookingStore(BookingRepository bookings, OutboxWriter outbox, BookingMetrics metrics) {
         this.bookings = bookings;
         this.outbox = outbox;
+        this.metrics = metrics;
+    }
+
+    private static Duration sagaDurationOf(Booking booking) {
+        return Duration.between(booking.getCreatedAt(), Instant.now());
     }
 
     @Transactional(readOnly = true)
@@ -43,6 +53,7 @@ public class BookingStore {
                                  BigDecimal amount, String correlationId) {
         Booking booking = bookings.save(
                 new Booking(tripId, passengerName, seatCount, amount, correlationId));
+        metrics.bookingCreated();
         log.info("Created booking {} (PENDING) for trip {}", booking.getId(), tripId);
         return booking;
     }
@@ -63,6 +74,7 @@ public class BookingStore {
         outbox.write(BOOKING_EVENTS_TOPIC, String.valueOf(bookingId),
                 BookingEvent.cancelled(bookingId, booking.getPassengerName(),
                         booking.getFailureReason(), booking.getCorrelationId()));
+        metrics.bookingSettled(BookingStatus.CANCELLED, sagaDurationOf(booking));
         log.info("Booking {} cancelled: no seats available", bookingId);
     }
 
@@ -76,6 +88,7 @@ public class BookingStore {
         booking.confirm();
         outbox.write(BOOKING_EVENTS_TOPIC, String.valueOf(bookingId),
                 BookingEvent.confirmed(bookingId, booking.getPassengerName(), booking.getCorrelationId()));
+        metrics.bookingSettled(BookingStatus.CONFIRMED, sagaDurationOf(booking));
         log.info("Booking {} CONFIRMED", bookingId);
     }
 
@@ -85,6 +98,7 @@ public class BookingStore {
         booking.cancel(reason);
         outbox.write(BOOKING_EVENTS_TOPIC, String.valueOf(bookingId),
                 BookingEvent.cancelled(bookingId, booking.getPassengerName(), reason, booking.getCorrelationId()));
+        metrics.bookingSettled(BookingStatus.CANCELLED, sagaDurationOf(booking));
         log.info("Booking {} CANCELLED after payment failure: {}", bookingId, reason);
     }
 }

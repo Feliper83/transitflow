@@ -119,4 +119,8 @@ public class Booking {
     public String getFailureReason() {
         return failureReason;
     }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

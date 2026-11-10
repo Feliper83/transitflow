@@ -102,6 +102,26 @@ curl http://localhost:8080/api/bookings/{id}
 - **Correlation IDs** propagated across services for traceable, debuggable flows.
 - **Observability** via Spring Boot Actuator (health, metrics, Prometheus endpoint).
 
+## Observability
+
+`docker compose up --build` now also brings up a **Prometheus + Grafana** stack alongside the services. Each service already exposes Micrometer metrics at `/actuator/prometheus`; Prometheus scrapes all five every 5s and Grafana visualizes them.
+
+| Tool | URL | Notes |
+|------|-----|-------|
+| Prometheus | http://localhost:9090 | Scrapes `/actuator/prometheus` on every service |
+| Grafana | http://localhost:3000 | **Anonymous admin access** — no login required |
+
+The dashboard **"TransitFlow — SAGA & Payments"** is pre-provisioned (datasource + dashboard auto-loaded), with panels for bookings by status, payments by result, outbox depth, SAGA p95 latency, booking-creation rate, and HTTP p95 latency.
+
+Custom business metrics exposed (names shared across the Java/Go/Python ports so one dashboard fits all):
+
+- `transitflow_bookings_created_total` — counter, bookings created (booking-service)
+- `transitflow_bookings_total{status="CONFIRMED"|"CANCELLED"}` — counter, bookings reaching a terminal state (booking-service)
+- `transitflow_payments_total{result="COMPLETED"|"FAILED"}` — counter, payment outcomes (payment-service)
+- `transitflow_outbox_pending` — gauge, outbox rows still awaiting publication (booking-service)
+- `transitflow_saga_duration_seconds` — histogram, booking-creation-to-terminal latency, with buckets for `histogram_quantile` (booking-service)
+- `http_server_requests_seconds` — Micrometer's default HTTP server latency histogram (all services)
+
 ## Tech
 
 **Language:** Java 21 · **Framework:** Spring Boot 3.3, Spring Kafka, Spring Data JPA, Spring Cloud Gateway
@@ -112,7 +132,7 @@ curl http://localhost:8080/api/bookings/{id}
 
 - [ ] Contract tests between producers and consumers (schema registry + Avro)
 - [ ] Distributed tracing with OpenTelemetry + Tempo
-- [ ] Grafana/Prometheus dashboards for SAGA latency and DLQ depth
+- [x] Grafana/Prometheus dashboards for SAGA latency and DLQ depth
 - [ ] Kubernetes manifests + Helm chart
 
 ## License

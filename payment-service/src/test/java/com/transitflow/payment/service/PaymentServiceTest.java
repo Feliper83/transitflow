@@ -11,6 +11,7 @@ import com.transitflow.payment.domain.PaymentRepository;
 import com.transitflow.payment.domain.PaymentStatus;
 import com.transitflow.payment.messaging.PaymentResultEvent;
 import com.transitflow.payment.messaging.ProcessPaymentCommand;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -25,7 +26,7 @@ class PaymentServiceTest {
     PaymentRepository payments;
 
     private PaymentService service() {
-        return new PaymentService(payments, new BigDecimal("500.00"));
+        return new PaymentService(payments, new BigDecimal("500.00"), new SimpleMeterRegistry());
     }
 
     @Test

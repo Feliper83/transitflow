@@ -5,6 +5,7 @@ import com.transitflow.payment.domain.PaymentRepository;
 import com.transitflow.payment.domain.PaymentStatus;
 import com.transitflow.payment.messaging.PaymentResultEvent;
 import com.transitflow.payment.messaging.ProcessPaymentCommand;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,11 +20,14 @@ public class PaymentService {
 
     private final PaymentRepository payments;
     private final BigDecimal declineAbove;
+    private final MeterRegistry registry;
 
     public PaymentService(PaymentRepository payments,
-                          @Value("${transitflow.payment.decline-above}") BigDecimal declineAbove) {
+                          @Value("${transitflow.payment.decline-above}") BigDecimal declineAbove,
+                          MeterRegistry registry) {
         this.payments = payments;
         this.declineAbove = declineAbove;
+        this.registry = registry;
     }
 
     /**
@@ -47,6 +51,8 @@ public class PaymentService {
                         "Amount exceeds auto-approval limit of " + declineAbove)
                 : new Payment(command.bookingId(), command.amount(), PaymentStatus.COMPLETED, null);
         payments.save(payment);
+        // transitflow_payments_total{result="COMPLETED"|"FAILED"}
+        registry.counter("transitflow.payments", "result", payment.getStatus().name()).increment();
 
         log.info("Payment for booking {} -> {} (amount={})",
                 command.bookingId(), payment.getStatus(), command.amount());
